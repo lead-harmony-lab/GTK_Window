@@ -26,8 +26,7 @@ class MainWindow(Gtk.Window):
         grid.attach(button5, 1, 2, 1, 1)
         grid.attach_next_to(button6, button5, Gtk.PositionType.RIGHT, 1, 1)
 
-        #So Cools
-        #stuff
+        #Edit
 
         # How to add a box
         self.box = Gtk.Box(spacing=10)
