@@ -84,6 +84,7 @@ class RootWidget(Gtk.Window):
         self.set_border_width(10)
         layout = Gtk.Box()
 
+
         # How to pack buttons in a box
         self.bacon_button = Gtk.Button(label="Bacon")
         self.bacon_button.connect("clicked", self.bacon_clicked)

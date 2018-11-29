@@ -22,6 +22,7 @@ class MyGLArea(Gtk.GLArea):
 
 
 
+
 class RootWidget(Gtk.Window):
     def __init__(self):
         Gtk.Window.__init__(self, title='GL Example')

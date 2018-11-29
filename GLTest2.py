@@ -14,6 +14,7 @@ class GUI:
         self.builder.add_from_file(UI_FILE)
         self.builder.connect_signals(self)
 
+
         gl_area = Gtk.GLArea()
         gl_area.connect('render', self.area_render)
         gl_area.connect('realize', self.area_realize)
