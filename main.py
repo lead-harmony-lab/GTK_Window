@@ -10,6 +10,19 @@ class MainWindow(Gtk.Window):
         self.set_default_size(500, 400)
         #self.set_size_request(200, 100)
 
+        #16 How to create a file chooser dialog
+        layout_16 = Gtk.Box(spacing=6)
+        #self.add(layout_16)
+
+        button = Gtk.Button("Choose File")
+        button.connect("clicked", self.on_file_clicked)
+        layout_16.add(button)
+
+        #15 How to create pop-up dialogue
+        button = Gtk.Button("Open a PopUp")
+        button.connect("clicked", self.popup_clicked)
+        #self.add(button)
+
         #12 How to create a tree view
         # List of tuples containing data to display in tree view
         people = [("George Taki", 80, "Comms Officer"),
@@ -17,8 +30,8 @@ class MainWindow(Gtk.Window):
                   ("James T Kirk", 30, "Starghip Captain"),
                   ("Scotty Boy", 42, "Engineering Officer"),
                   ("Lennard MaCoy", 45, "Doctor")]
-        layout = Gtk.Box()
-        self.add(layout)
+        layout_12 = Gtk.Box()
+        #self.add(layout_12)
 
         # Each Gtk.TreeView has an associated Gtk.TreeModel. Tree models are usually a Gtk.ListStore
         people_list_store = Gtk.ListStore(str, int, str)  # This constructs the the model
@@ -39,11 +52,18 @@ class MainWindow(Gtk.Window):
             # Create columns (text is the column number)
             column = Gtk.TreeViewColumn(col_title, renderer, text=i)
 
+            # Make columns sortable
+            column.set_sort_column_id(i)
+
             # Add column to TreeView
             people_tree_view.append_column(column)
 
+        # Handle Selection
+        selected_row = people_tree_view.get_selection()
+        selected_row.connect("changed", self.item_selected)  # item_selected defined below
+
         # Add the TreeView to the main layout
-        layout.pack_start(people_tree_view, True, True, 0)
+        layout_12.pack_start(people_tree_view, True, True, 0)
 
 
         #for row in people_list_store:
@@ -244,16 +264,16 @@ class MainWindow(Gtk.Window):
 
         #4 How to add a box
         self.box = Gtk.Box(spacing=10)
-        #self.add(self.box)
+        self.add(self.box)
 
         # How to pack buttons in a box
         self.bacon_button = Gtk.Button(label="Bacon")
         self.bacon_button.connect("clicked", self.bacon_clicked)
-        #self.box.pack_start(self.bacon_button, True, True, 0)
+        self.box.pack_start(self.bacon_button, True, True, 0)
 
         self.tuna_button = Gtk.Button(label="Tuna")
         self.tuna_button.connect("clicked", self.tuna_clicked)
-        #self.box.pack_start(self.tuna_button, True, True, 0)
+        self.box.pack_start(self.tuna_button, True, True, 0)
 
         #3 How to add a basic Button
         self.button = Gtk.Button(label="Click here!")
@@ -275,6 +295,55 @@ class MainWindow(Gtk.Window):
         print(self.username.get_text())
         print(self.password.get_text())
 
+    # Function for user selected row in section #12
+    def item_selected(self, selection):
+        model, row = selection.get_selected()
+        if row is not None:
+            print("Name: " + str(model[row][0]))
+            print("Age: ", model[row][1])
+            print("Job: ", model[row][2])
+            print("")
+
+    # Button for popup window in section #15
+    def popup_clicked(self, widget):
+        dialog = PopUp(self)
+        response = dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            print("You clicked the OK button")
+        elif response == Gtk.ResponseType.CANCEL:
+            print("You clicked the CANCEL button")
+
+        dialog.destroy()
+
+    # Button for file chooser dialog in section #16
+    def on_file_clicked(self, widget):
+        dialog = Gtk.FileChooserDialog("Select a File", self, Gtk.FileChooserAction.OPEN,
+                                       ("CANCEL", Gtk.ResponseType.CANCEL,
+                                        "OPEN", Gtk.ResponseType.OK))
+        response = dialog.run()
+
+        if response == Gtk.ResponseType.OK:
+            print("You clicked the OPEN button.\n")
+            print("File selected: " + dialog.get_filename())
+        elif response == Gtk.ResponseType.CANCEL:
+            print("You clicked the CANCEL button.")
+
+        dialog.destroy()
+
+class PopUp(Gtk.Dialog):
+
+    def __init__(self, parent):
+        Gtk.Dialog.__init__(self, "ALERT - Title", parent, Gtk.DialogFlags.MODAL, (
+            "Cancel Text", Gtk.ResponseType.CANCEL,
+            Gtk.STOCK_OK, Gtk.ResponseType.OK
+        ))
+        self.set_default_size(200, 300)
+        self.set_border_width(20)
+
+        area = self.get_content_area()
+        area.add(Gtk.Label("Derp! PopUp message of questioning!"))
+        self.show_all()
 
 
 window = MainWindow()
