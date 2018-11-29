@@ -20,10 +20,12 @@ class MainWindow(Gtk.Window):
         layout = Gtk.Box()
         self.add(layout)
 
+        # Each Gtk.TreeView has an associated Gtk.TreeModel. Tree models are usually a Gtk.ListStore
+        people_list_store = Gtk.ListStore(str, int, str)  # This constructs the the model
+
         # list of tuples needs to be converted into ListStore view to be compatable with tree view
-        people_list_store = Gtk.ListStore(str, int, str)
         for item in people:
-            people_list_store.append(list(item))
+            people_list_store.append(list(item))  # Converts tuple into a list: (n1, n2, n3, ...) => [n1, n2, n3, ...]
 
         # Treeview is the item that is displayed
         people_tree_view = Gtk.TreeView(people_list_store)
