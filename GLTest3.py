@@ -1,9 +1,11 @@
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk
+from gi.repository import Gtk, Gdk, GLib
 from OpenGL.GL import *
 from OpenGL.GL import shaders
 import numpy as np
+
+# Search through https://www.mail-archive.com/opensuse-commit@opensuse.org/msg103010.html
 
 FRAGMENT_SOURCE ='''
 #version 330
@@ -28,6 +30,8 @@ class MyGLArea(Gtk.GLArea):
         #self.connect("unrealize" self.on_unrealize)  # Catch this signal to clean up buffer objects and shaders
         self.connect("render", self.on_render)
         #self.connect("resize", self.on_resize)
+        self.start_time = 0
+        self.last_time = 0
 
     def on_realize(self, area):
         ctx = self.get_context()
@@ -49,6 +53,10 @@ class MyGLArea(Gtk.GLArea):
 
 
     def create_object(self):
+
+        self.start_time = self.get_frame_clock().get_frame_time()
+        self.last_time = self.start_time
+
         # Create a new VAO (Vertex Array Object) and bind it
         vertex_array_object = glGenVertexArrays(1)
         glBindVertexArray(vertex_array_object)
@@ -78,6 +86,9 @@ class MyGLArea(Gtk.GLArea):
         self.display(vertex_array_object)
 
     def display(self, vert):  # Main loop
+        print() - int(self.start_time))
+        self.last_time = int(self.get_frame_clock().get_frame_time())
+
         glClearColor(0.0, 1.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glUseProgram(self.shader_prog)
@@ -87,14 +98,13 @@ class MyGLArea(Gtk.GLArea):
         glBindVertexArray(0)
         glUseProgram(0)
         print("loop")
-        glFlush()
+        self.queue_draw()
 
 
 class RootWidget(Gtk.Window):
     def __init__(self):
-        Gtk.Window.__init__(self, title='GL Example')
+        win = Gtk.Window.__init__(self, title='GL Example')
         self.set_default_size(800, 500)
-
 
         gl_area = MyGLArea()
         gl_area.set_has_depth_buffer(True)
@@ -108,4 +118,3 @@ win = RootWidget()
 win.connect("delete-event", Gtk.main_quit)
 win.show_all()
 Gtk.main()
-
