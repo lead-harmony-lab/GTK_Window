@@ -1,6 +1,6 @@
 import gi
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk
+from gi.repository import Gtk, Gdk
 from OpenGL.GL import *
 from OpenGL.GL import shaders
 import numpy as np
@@ -23,6 +23,7 @@ gl_Position =  position;
 class MyGLArea(Gtk.GLArea):
     def __init__(self):
         Gtk.GLArea.__init__(self)
+        self.set_required_version(3, 3)
         self.connect("realize", self.on_realize)
         #self.connect("unrealize" self.on_unrealize)  # Catch this signal to clean up buffer objects and shaders
         self.connect("render", self.on_render)
@@ -30,8 +31,12 @@ class MyGLArea(Gtk.GLArea):
 
     def on_realize(self, area):
         ctx = self.get_context()
+        print('is legacy context %s' % Gdk.GLContext.is_legacy(ctx))
         major, minor = ctx.get_required_version()
         print("Using OpenGL Version " + str(major) + "." + str(minor))
+        print('glGenVertexArrays Available %s' % bool(glGenVertexArrays))
+        print('Alpha Available %s' % bool(area.get_has_alpha()))
+        print('Depth buffer Available %s' % bool(area.get_has_depth_buffer()))
 
     def on_render(self, area, ctx):
         ctx.make_current()
@@ -72,7 +77,8 @@ class MyGLArea(Gtk.GLArea):
         glBindBuffer(GL_ARRAY_BUFFER, 0)
         self.display(vertex_array_object)
 
-    def display(self, vert):
+    def display(self, vert):  # Main loop
+        glClearColor(0.0, 1.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glUseProgram(self.shader_prog)
         glBindVertexArray(vert)
@@ -80,6 +86,8 @@ class MyGLArea(Gtk.GLArea):
         #glDrawArrays(GL_TRIANGLES, 4, 3)
         glBindVertexArray(0)
         glUseProgram(0)
+        print("loop")
+        glFlush()
 
 
 class RootWidget(Gtk.Window):
@@ -89,15 +97,15 @@ class RootWidget(Gtk.Window):
 
 
         gl_area = MyGLArea()
-        gl_area.set_has_depth_buffer(False)
+        gl_area.set_has_depth_buffer(True)
         gl_area.set_has_stencil_buffer(False)
 
         self.add(gl_area)
 
-    def bacon_clicked(self, widget):
-        print("You clicked bacon")
+
 
 win = RootWidget()
 win.connect("delete-event", Gtk.main_quit)
 win.show_all()
 Gtk.main()
+
