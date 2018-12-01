@@ -29,11 +29,23 @@ class MyGLArea(Gtk.GLArea):
         self.connect("realize", self.on_realize)
         #self.connect("unrealize" self.on_unrealize)  # Catch this signal to clean up buffer objects and shaders
         self.connect("render", self.on_render)
-        #self.connect("resize", self.on_resize)
-        self.start_time = 0
-        self.last_time = 0
+        self.last_frame_time = 0
+        self.add_tick_callback(self._tick)
+        self.counter = 0
+        self.frame_counter = 0
+
+    def _tick(self, wi, clock):
+        ti = clock.get_frame_time()
+        if ti - self.last_frame_time > 1000000:
+            self.counter += 1
+            print(str(self.frame_counter) + "/s")
+            self.frame_counter = 0
+            self.last_frame_time = ti
+            #self.queue_draw()
+        return True
 
     def on_realize(self, area):
+        # OpenGL Context Successfully Initalized
         ctx = self.get_context()
         print('is legacy context %s' % Gdk.GLContext.is_legacy(ctx))
         major, minor = ctx.get_required_version()
@@ -43,6 +55,8 @@ class MyGLArea(Gtk.GLArea):
         print('Depth buffer Available %s' % bool(area.get_has_depth_buffer()))
 
     def on_render(self, area, ctx):
+        # Main Render Loop
+        self.frame_counter += 1
         ctx.make_current()
         glClearColor(0, 0, 0, 1)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -53,9 +67,6 @@ class MyGLArea(Gtk.GLArea):
 
 
     def create_object(self):
-
-        self.start_time = self.get_frame_clock().get_frame_time()
-        self.last_time = self.start_time
 
         # Create a new VAO (Vertex Array Object) and bind it
         vertex_array_object = glGenVertexArrays(1)
@@ -85,9 +96,7 @@ class MyGLArea(Gtk.GLArea):
         glBindBuffer(GL_ARRAY_BUFFER, 0)
         self.display(vertex_array_object)
 
-    def display(self, vert):  # Main loop
-        print() - int(self.start_time))
-        self.last_time = int(self.get_frame_clock().get_frame_time())
+    def display(self, vert):
 
         glClearColor(0.0, 1.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -97,7 +106,6 @@ class MyGLArea(Gtk.GLArea):
         #glDrawArrays(GL_TRIANGLES, 4, 3)
         glBindVertexArray(0)
         glUseProgram(0)
-        print("loop")
         self.queue_draw()
 
 
