@@ -1,7 +1,7 @@
  /*-------------\
-|   main.cpp     | Demo Challenge OpenGL 3.3 Framework
+|   main.cpp     | Demo Challenge OpenGL Framework
  \*-------------/ ------------------------------------------------------------------------------------------*\
-  Version 3.3 - 06/05/2015
+  Version 2.0 - 10/31/2010
 
   Author: Godvalve
   Email: godvalve@hotmail.com
@@ -13,25 +13,28 @@
 \*----------------------------------------------------------------------------------------------------------*/
 
 #include <windows.h>
+#include <fstream>
 #include <iostream>
-#include <stdio.h>      // Used of fprintf and stderr
-#include <GL/glew.h>    // Used for OpenGL types like GLuint
-#include <GL/wglew.h>   // Windows specific OpenGL Extension Wrangler library definitions
-#include <GL/glext.h>   // OpenGL extension definitions (OpenGL Working Group)
-
-#include <glm/glm.hpp>
-#include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtx/transform2.hpp>
-using namespace glm;
-
-
-#include "resource.h"   // The reouce class with program icons and launcher dialogue box
-#include "Shader.h"     // Our GLSL Shader class
+#include <stdio.h>
+#include <vector>
+#include <string>
+#include <gl/gl.h>
+#include <gl/glu.h>
+#include "wglext.h"
+#include "glext.h"
+#include "targa.h"
+#include "resource.h"
 
 using std::string;
 using std::ifstream;
 using std::vector;
 
+struct hShader
+{
+    unsigned int id;
+    string filename;
+    string source;
+};
 
 //--------------------------------------------------------------------------------------
 // Global Variables
@@ -44,22 +47,21 @@ int iScreenHeight;
 int iBitsPerPel;
 float fAspectRatio;
 float fFieldOfView;
-Shader *demoShader;         // Declare a Shader object
 
 LARGE_INTEGER TimerFreq;	// Timer Frequency.
 LARGE_INTEGER TimeStart;	// Time of start.
 LARGE_INTEGER TimeCur;		// Current time.
 
-glm::mat4 projectionMatrix;
-glm::mat4 viewMatrix;
-glm::mat4 modelMatrix;
-glm::mat4 MVP;
+hShader hVertexShader;
+hShader hFragmentShader;
+unsigned int hShaderProgram;
+GLuint vertexBuffer;
+GLuint colourBuffer;
+GLuint indexBuffer;
+GLuint hTexture0;
+GLuint textureCoordinateBuffer;
 
-GLuint mvpMatrixLocationInShader;
-
-GLuint vertexBuffer;        // This will identify our vertex buffer
-GLuint colorBuffer;         // Our color buffer
-
+TargaImage crateTexture;
 
 //--------------------------------------------------------------------------------------
 // Forward declarations
@@ -68,13 +70,42 @@ LRESULT CALLBACK WindowProc(HWND, UINT, WPARAM, LPARAM);
 BOOL CALLBACK DlgProc(HWND, UINT, WPARAM, LPARAM);
 void EnableOpenGL(HWND hWnd, HDC*, HGLRC*);
 void DisableOpenGL(HWND, HDC, HGLRC);
+void echoShaderLog(unsigned int shaderID);
+bool compileShader(const hShader& shader);
+string readFile(const string& filename);
 void ConfigureViewport(GLsizei, GLsizei);
 void ResizeViewport(GLsizei, GLsizei);
 void InitializeDemo();
 void RenderNextDemoFrame();
 void ChangeDisplayMode();
 void RestoreDisplayMode();
-void createSquare();
+
+
+PFNWGLCREATECONTEXTATTRIBSARBPROC               wglCreateContextAttribsARB = NULL;
+PFNGLGENBUFFERSARBPROC                          glGenBuffers = NULL;
+PFNGLDELETEBUFFERSARBPROC                       glDeleteBuffers = NULL;
+PFNGLBINDBUFFERPROC                             glBindBuffer = NULL;
+PFNGLBUFFERDATAPROC                             glBufferData = NULL;
+PFNGLGETUNIFORMLOCATIONPROC						glGetUniformLocation = NULL;
+PFNGLUNIFORMMATRIX4FVPROC						glUniformMatrix4fv = NULL;
+PFNGLVERTEXATTRIBPOINTERPROC					glVertexAttribPointer = NULL;
+PFNGLENABLEVERTEXATTRIBARRAYPROC				glEnableVertexAttribArray = NULL;
+PFNGLDISABLEVERTEXATTRIBARRAYPROC				glDisableVertexAttribArray = NULL;
+PFNGLCREATEPROGRAMPROC							glCreateProgram = NULL;
+PFNGLCREATESHADERPROC							glCreateShader = NULL;
+PFNGLSHADERSOURCEPROC							glShaderSource = NULL;
+PFNGLCOMPILESHADERPROC							glCompileShader = NULL;
+PFNGLATTACHSHADERPROC							glAttachShader = NULL;
+PFNGLLINKPROGRAMPROC							glLinkProgram = NULL;
+PFNGLBINDATTRIBLOCATIONPROC						glBindAttribLocation = NULL;
+PFNGLUSEPROGRAMPROC								glUseProgram = NULL;
+PFNGLDELETESHADERPROC							glDeleteShader = NULL;
+PFNGLDETACHSHADERPROC							glDetachShader = NULL;
+PFNGLGETSHADERIVPROC							glGetShaderiv = NULL;
+PFNGLGETSHADERINFOLOGPROC						glGetShaderInfoLog = NULL;
+PFNGLUNIFORM1FPROC								glUniform1f = NULL;
+PFNGLUNIFORM1IPROC								glUniform1i = NULL;
+PFNGLACTIVETEXTUREPROC							glActiveTexture = NULL;
 
 
 #define BUFFER_OFFSET(i) ((char*)NULL + (i))
@@ -97,8 +128,11 @@ int WINAPI WinMain(HINSTANCE hInstance,
     BOOL bQuit = FALSE;
     fullscreen = TRUE;
 
+    hVertexShader.filename = "basic-fixed.vert";
+    hFragmentShader.filename = "basic-fixed.frag";
+
     // Only shows on the console window if in debug build. Use release mode or change build options to remove console window.
-    std::cout << "OpenGL Demo Framework version 3.3 (June 05, 2015)\n";
+    std::cout << "OpenGL Demo Framework version 2.0 (October 31, 2010)\n";
 
     /* Display the Demo Challenge Launcher to get user's preferences for fullscreen and resolution */
     if(DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_DemoLauncher), HWND_DESKTOP, DlgProc, 0) == FALSE)
@@ -251,7 +285,14 @@ void ResizeViewport(GLsizei width, GLsizei height)
     /* Set the viewport to conform to selected aspect ratio */
     ConfigureViewport(width, height);
 
-	projectionMatrix = glm::perspective(fFieldOfView, fAspectRatio, 0.1F, 100.0F);     // Creates a perspective projection matrix
+	/* Target the projection matrix stack and reset the top matrix to the identity matrix. */
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+	gluPerspective(fFieldOfView, fAspectRatio, 1.0F, 1024.0F);		// Creates a matrix that is multiplied against the current projection matrix
+
+	/* Retarget the ModelView matrix stack (assumes that window is resized in the middle of a drawing routine) */
+	glMatrixMode( GL_MODELVIEW );
 }
 
 //--------------------------------------------------------------------------------------
@@ -507,43 +548,49 @@ void EnableOpenGL(HWND hWnd, HDC* hDC, HGLRC* hRC)
 
     HGLRC tempContext;
 
-    /* create and enable a temporary OpenGL 2.1 rendering context (RC) */
+    /* create and enable a temporary rendering context (RC) */
     tempContext = wglCreateContext(*hDC);
 
     /*WGL functions are extensions to Win32 specifically for OpenGL (used for remembering OGL settings and commands)*/
-    wglMakeCurrent(*hDC, tempContext);  // Make the OpenGL 2.1 context current and active
+    wglMakeCurrent(*hDC, tempContext);
 
+    /* get the function pointers*/
+    wglCreateContextAttribsARB  = (PFNWGLCREATECONTEXTATTRIBSARBPROC) wglGetProcAddress("wglCreateContextAttribsARB");
+    glGenBuffers                = (PFNGLGENBUFFERSARBPROC)wglGetProcAddress("glGenBuffers");
+    glDeleteBuffers             = (PFNGLDELETEBUFFERSARBPROC)wglGetProcAddress("glDeleteBuffers");
+    glBindBuffer                = (PFNGLBINDBUFFERPROC)wglGetProcAddress("glBindBuffer");
+    glBufferData                = (PFNGLBUFFERDATAPROC)wglGetProcAddress("glBufferData");
+    glGetUniformLocation		= (PFNGLGETUNIFORMLOCATIONPROC)wglGetProcAddress("glGetUniformLocation");
+    glUniformMatrix4fv			= (PFNGLUNIFORMMATRIX4FVPROC)wglGetProcAddress("glUniformMatrix4fv");
+    glVertexAttribPointer		= (PFNGLVERTEXATTRIBPOINTERPROC)wglGetProcAddress("glVertexAttribPointer");
+    glEnableVertexAttribArray	= (PFNGLENABLEVERTEXATTRIBARRAYPROC)wglGetProcAddress("glEnableVertexAttribArray");
+    glDisableVertexAttribArray	= (PFNGLDISABLEVERTEXATTRIBARRAYPROC)wglGetProcAddress("glDisableVertexAttribArray");
+    glCreateProgram				= (PFNGLCREATEPROGRAMPROC)wglGetProcAddress("glCreateProgram");
+    glCreateShader				= (PFNGLCREATESHADERPROC)wglGetProcAddress("glCreateShader");
+    glShaderSource				= (PFNGLSHADERSOURCEPROC)wglGetProcAddress("glShaderSource");
+    glCompileShader				= (PFNGLCOMPILESHADERPROC)wglGetProcAddress("glCompileShader");
+    glAttachShader				= (PFNGLATTACHSHADERPROC)wglGetProcAddress("glAttachShader");
+    glLinkProgram				= (PFNGLLINKPROGRAMPROC)wglGetProcAddress("glLinkProgram");
+    glBindAttribLocation		= (PFNGLBINDATTRIBLOCATIONPROC)wglGetProcAddress("glBindAttribLocation");
+    glUseProgram				= (PFNGLUSEPROGRAMPROC)wglGetProcAddress("glUseProgram");
+    glDeleteShader				= (PFNGLDELETESHADERPROC)wglGetProcAddress("glDeleteShader");
+    glDetachShader				= (PFNGLDETACHSHADERPROC)wglGetProcAddress("glDetachShader");
+    glGetShaderiv				= (PFNGLGETSHADERIVPROC)wglGetProcAddress("glGetShaderiv");
+    glGetShaderInfoLog			= (PFNGLGETSHADERINFOLOGPROC)wglGetProcAddress("glGetShaderInfoLog");
+    glUniform1f					= (PFNGLUNIFORM1FPROC)wglGetProcAddress("glUniform1f");
+    glUniform1i					= (PFNGLUNIFORM1IPROC)wglGetProcAddress("glUniform1i");
+    glActiveTexture				= (PFNGLACTIVETEXTUREPROC)wglGetProcAddress("glActiveTexture");
 
-    int attributes[] = {
-        WGL_CONTEXT_MAJOR_VERSION_ARB, 3, // Set the MAJOR version of OpenGL to 3
-        WGL_CONTEXT_MINOR_VERSION_ARB, 3, // Set the MINOR version of OpenGL to 3
-        //WGL_CONTEXT_FLAGS_ARB, WGL_CONTEXT_FORWARD_COMPATIBLE_BIT_ARB, // Set our OpenGL context to be forward compatible
-        0
-    };
-
-    GLenum error = glewInit();  // Enable GLEW so we can use extensions required to use shaders
-    if (error != GLEW_OK){      // If GLEW fails
-        MessageBox(NULL, "GLEW failed to intialize", "Error", MB_ICONERROR | MB_OK);
+    if(!wglCreateContextAttribsARB)
+    {
+        MessageBox(NULL, "OGL 3.0 not supported", "Error", MB_ICONERROR | MB_OK);
     }
 
+    int attribs[] = {WGL_CONTEXT_MAJOR_VERSION_ARB, 3,
+                     WGL_CONTEXT_MINOR_VERSION_ARB, 1,
+                     0};  // Zero indicates the end of the array.
 
-    if (wglewIsSupported("WGL_ARB_create_context") == 1) { // If the OpenGL 3.x context creation extension is available
-        *hRC = wglCreateContextAttribsARB(*hDC, NULL, attributes); // Create and OpenGL 3.x context based on the given attributes
-        wglMakeCurrent(NULL, NULL); // Remove the temporary context from being active
-        wglDeleteContext(tempContext); // Delete the temporary OpenGL 2.1 context
-        wglMakeCurrent(*hDC, *hRC); // Make our OpenGL 3.x context current
-    }
-    else {
-        *hRC = tempContext; // If we didn't have support for OpenGL 3.x and up, use the OpenGL 2.1 context
-    }
-
-    int glVersion[2] = {-1, -1}; // Set some default values for the version
-    glGetIntegerv(GL_MAJOR_VERSION, &glVersion[0]); // Get back the OpenGL MAJOR version we are using
-    glGetIntegerv(GL_MINOR_VERSION, &glVersion[1]); // Get back the OpenGL MINOR version we are using
-
-    std::cout << "Using OpenGL: " << glVersion[0] << "." << glVersion[1] << std::endl; // Output which version of OpenGL we are using On Windows, you won\92t get a console for a Win32 Application, but a nifty trick to get console output, is to open up Command Prompt, navigate to your directory with your executable file, and use something like: \93program.exe > temp.txt\94
-
-    *hRC = wglCreateContextAttribsARB(*hDC, 0, attributes);
+    *hRC = wglCreateContextAttribsARB(*hDC, 0, attribs);
     wglDeleteContext(tempContext);
 
     wglMakeCurrent(*hDC, *hRC);
@@ -570,27 +617,65 @@ void DisableOpenGL (HWND hWnd, HDC hDC, HGLRC hRC)
 //--------------------------------------------------------------------------------------
 // Initialize the OpenGL state machine. Set up projection matrix and other initial states
 //--------------------------------------------------------------------------------------
-void InitializeDemo()   // Setup our scene
+void InitializeDemo()
 {
-    glClearColor(0.4f, 0.6f, 0.9f, 0.0f);                               // Set the clear colour based on Microsoft's CornflowerBlue (default in XNA)
-    demoShader = new Shader("basic-fixed.vert", "basic-fixed.frag");    // Initialize our Shader object with the file names of our shader files. Shader files are located inthe same directory as the compiled application.
+    hShaderProgram = glCreateProgram();
+    hVertexShader.id = glCreateShader(GL_VERTEX_SHADER);
+    hFragmentShader.id = glCreateShader(GL_FRAGMENT_SHADER);
 
-    fFieldOfView = 45.0F; // Set to 60.0F
-    ConfigureViewport(iScreenWidth, iScreenHeight);                     // Set the viewport to the selected aspect ratio and compute the projection matrix
+    hVertexShader.source = readFile(hVertexShader.filename);
+    hFragmentShader.source = readFile(hFragmentShader.filename);
 
-    viewMatrix = glm::lookAt(glm::vec3(4,3,3), glm::vec3(0,0,0), glm::vec3(0,1,0));
-    modelMatrix = glm::mat4(1.0f);
-    projectionMatrix = glm::perspective(fFieldOfView, fAspectRatio, 0.1F, 100.0F);     // Creates a perspective projection matrix
-    MVP = projectionMatrix * viewMatrix * modelMatrix;
+    if (hVertexShader.source.empty() || hFragmentShader.source.empty())
+    {
+        std::cerr << "Could not initialize the shaders." << std::endl;
 
-    mvpMatrixLocationInShader = glGetUniformLocation(demoShader->id(), "MVP");   // Get the location of the projection matrix in the shader
+        MessageBox(NULL, "Could not initialize application.", "ERROR!", MB_ICONERROR | MB_OK);
+    }
 
-    createSquare();
+    const GLchar* tmp = static_cast<const GLchar*>(hVertexShader.source.c_str());
+    glShaderSource(hVertexShader.id, 1, (const GLchar**)&tmp, NULL);
 
-    // Enable depth test
+    tmp = static_cast<const GLchar*>(hFragmentShader.source.c_str());
+    glShaderSource(hFragmentShader.id, 1, (const GLchar**)&tmp, NULL);
+
+    if (!compileShader(hVertexShader) || !compileShader(hFragmentShader))
+    {
+        std::cerr << "Shaders are invalid! Could not compile shaders." << std::endl;
+        std::cerr << "Could not initialize shaders." << std::endl;
+
+        MessageBox(NULL, "Could not initialize the application.", "ERROR!", MB_ICONERROR | MB_OK);
+    }
+
+    glAttachShader(hShaderProgram, hVertexShader.id);
+    glAttachShader(hShaderProgram, hFragmentShader.id);
+
+    glLinkProgram(hShaderProgram);
+
+    //Bind the attribute locations
+    glBindAttribLocation(hShaderProgram, 0, "attribVertex");
+    glBindAttribLocation(hShaderProgram, 1, "attribColor");
+    glBindAttribLocation(hShaderProgram, 2, "a_TexCoord");
+
+    glLinkProgram(hShaderProgram);  //Re-link the program
+    glUseProgram(hShaderProgram);   //Enable our shader
+
+
+    /* Set the viewport to the selected aspect ratio */
+    ConfigureViewport(iScreenWidth, iScreenHeight);
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+
+    fFieldOfView = 45.0F;
+
+	gluPerspective(fFieldOfView, fAspectRatio, 1.0F, 1024.0F);		// Creates a matrix that is multiplied against the current projection matrix
+
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
+	/* Enable depth buffering */
     glEnable(GL_DEPTH_TEST);
-    // Accept fragment if it closer to the camera than the former one
-    glDepthFunc(GL_LESS);
 }
 
 //--------------------------------------------------------------------------------------
@@ -598,140 +683,137 @@ void InitializeDemo()   // Setup our scene
 //--------------------------------------------------------------------------------------
 void RenderNextDemoFrame()
 {
+
+    See: https://github.com/cprogrammer1994/Headless-rendering-with-python/blob/master/main.py for additional information
+
+    float modelviewMatrix[16];
+    float projectionMatrix[16];
+
+	/* OpenGL animation code goes here */
+	glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    demoShader->Bind();
+	glPushMatrix();
 
-	//glRotatef(fTime*120, 0.2f, 1.0f, 0.2f);
-	modelMatrix = glm::rotate(modelMatrix,fDeltaTime,glm::vec3(0.2f, 1.0f, 0.2f)); //rotate
-	MVP = projectionMatrix * viewMatrix * modelMatrix;
+	glTranslatef(0.0f, 0.0f, -2.125f);
+	glRotatef(fTime*120, 0.2f, 1.0f, 0.2f);
 
-    glUniformMatrix4fv(mvpMatrixLocationInShader, 1, GL_FALSE, &MVP[0][0]);
+    //Get the current matrices from OpenGL
+    glGetFloatv(GL_MODELVIEW_MATRIX, modelviewMatrix);
+    glGetFloatv(GL_PROJECTION_MATRIX, projectionMatrix);
 
-    // 1st attribute buffer : vertices
-    glEnableVertexAttribArray(0);
+    //Send the modelview, projection, and texture data to the shaders
+    GLuint location = glGetUniformLocation(hShaderProgram, "modelview_matrix");
+    glUniformMatrix4fv(location, 1, false, modelviewMatrix);
+    location = glGetUniformLocation(hShaderProgram, "projection_matrix");
+    glUniformMatrix4fv(location, 1, false, projectionMatrix);
+
+    location = glGetUniformLocation(hShaderProgram, "texture0");
+    glUniform1i(location, 0);
+
+    GLfloat color[]  = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.5f, 0.5f, 0.5f,1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.5f, 0.5f, 0.5f};
+    glGenBuffers(1, &colourBuffer); //Generate a buffer for the colors
+    glBindBuffer(GL_ARRAY_BUFFER, colourBuffer); //Bind the color buffer
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*24, &color[0], GL_STATIC_DRAW);
+
+    GLfloat vertex[] = {-0.5f, -0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f, 0.5f, 0.5f, -0.5f, 0.5f, 0.5f, 0.5f, -0.5f, -0.5f, -0.5f, -0.5f, -0.5f, -0.5f, 0.5f, -0.5f, 0.5f, 0.5f, -0.5f};
+    glGenBuffers(1, &vertexBuffer); //Generate a buffer for the vertices
+    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer); //Bind the vertex buffer
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*24, &vertex[0], GL_STATIC_DRAW);
+
+    GLuint indices[] = {0,1,2,0,2,3,1,4,7,1,7,2,4,5,6,4,6,7,5,0,3,5,3,6,3,2,7,3,7,6,5,4,1,5,1,0};
+    glGenBuffers(1, &indexBuffer); // Generate a buffer for the indices
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer); // Bind the indices buffer
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint)*36, &indices[0], GL_STATIC_DRAW);
+
+    GLfloat m_texCoords[] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};
+    glGenBuffers(1, &textureCoordinateBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, textureCoordinateBuffer); //Bind the vertex buffer
+    glBufferData(GL_ARRAY_BUFFER, sizeof(GLfloat)*16, &m_texCoords[0], GL_STATIC_DRAW); //Send the data to OpenGL
+
+
+    if (!crateTexture.load("crate.tga"))
+    {
+        std::cerr << "Could not load the crate texture" << std::endl;
+    }
+
+    glGenTextures(1, &hTexture0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, hTexture0);
+    //glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, crateTexture.getWidth(), crateTexture.getHeight(), 0, GL_RGB, GL_UNSIGNED_BYTE, crateTexture.getImageData());
+
+    glEnableVertexAttribArray(0); //Enable the vertex attribute
+    glEnableVertexAttribArray(1); //Enable the color attribute
+    glEnableVertexAttribArray(2); //Enable the texture coordinate attribute
+
+    //Bind the vertex array and set the vertex pointer to point at it
     glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);
-    glVertexAttribPointer(
-       0,                   // attribute 0. No particular reason for 0, but must match the layout in the vertex shader.
-       3,                   // size
-       GL_FLOAT,            // type
-       GL_FALSE,            // normalized?
-       0,                   // stride
-       (void*)0             // array buffer offset
-    );
+    glVertexAttribPointer((GLint)0, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
+    //Bind the color array
+    glBindBuffer(GL_ARRAY_BUFFER, colourBuffer);
+    glVertexAttribPointer((GLint)1, 3, GL_FLOAT, GL_FALSE, 0, 0);
 
-    // 2nd attribute buffer : colors
-    glEnableVertexAttribArray(1);
-    glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
-    glVertexAttribPointer(
-        1,                  // attribute 1. No particular reason for 1, but must match the layout in the vertex shader.
-        3,                  // size
-        GL_FLOAT,           // type
-        GL_FALSE,           // normalized?
-        0,                  // stride
-        (void*)0            // array buffer offset
-    );
+    glBindBuffer(GL_ARRAY_BUFFER, textureCoordinateBuffer);
+    glVertexAttribPointer((GLint)2, 2, GL_FLOAT, GL_FALSE, 0, 0);
 
-    // Draw the triangle !
-    glDrawArrays(GL_TRIANGLES, 0, 12*3); // Starting from vertex 0; 3 vertices total -> 1 triangle
-    glDisableVertexAttribArray(0);
+    //Bind the index array
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indexBuffer);
 
-    demoShader->unbind();
+    //Draw the triangles
+    glDrawElements(GL_TRIANGLES, 36, GL_UNSIGNED_INT, 0);
+
+    glDisableVertexAttribArray(0); //Disable the vertex attribute
+    glDisableVertexAttribArray(1); //Disable the color attribute
+    glDisableVertexAttribArray(2); //Disable the texture coordinate attribute
+
+    glDeleteTextures(1, &hTexture0);
+
+	glPopMatrix();
 }
 
-void createSquare() {
-    GLuint VertexArrayID;
-    glGenVertexArrays(1, &VertexArrayID);   // Create our Vertex Array Object
-    glBindVertexArray(VertexArrayID);       // Bind our Vertex Array Object so we can use it
+string readFile(const string& filename)
+{
+    ifstream fileIn(filename.c_str());
 
-    // Our vertices. Three consecutive floats give a 3D vertex; Three consecutive vertices give a triangle.
-    // A cube has 6 faces with 2 triangles each, so this makes 6*2=12 triangles, and 12*3 vertices
-    static const GLfloat g_vertex_buffer_data[] = {
-        -1.0f,-1.0f,-1.0f, // triangle 1 : begin
-        -1.0f,-1.0f, 1.0f,
-        -1.0f, 1.0f, 1.0f, // triangle 1 : end
-        1.0f, 1.0f,-1.0f, // triangle 2 : begin
-        -1.0f,-1.0f,-1.0f,
-        -1.0f, 1.0f,-1.0f, // triangle 2 : end
-        1.0f,-1.0f, 1.0f,
-        -1.0f,-1.0f,-1.0f,
-        1.0f,-1.0f,-1.0f,
-        1.0f, 1.0f,-1.0f,
-        1.0f,-1.0f,-1.0f,
-        -1.0f,-1.0f,-1.0f,
-        -1.0f,-1.0f,-1.0f,
-        -1.0f, 1.0f, 1.0f,
-        -1.0f, 1.0f,-1.0f,
-        1.0f,-1.0f, 1.0f,
-        -1.0f,-1.0f, 1.0f,
-        -1.0f,-1.0f,-1.0f,
-        -1.0f, 1.0f, 1.0f,
-        -1.0f,-1.0f, 1.0f,
-        1.0f,-1.0f, 1.0f,
-        1.0f, 1.0f, 1.0f,
-        1.0f,-1.0f,-1.0f,
-        1.0f, 1.0f,-1.0f,
-        1.0f,-1.0f,-1.0f,
-        1.0f, 1.0f, 1.0f,
-        1.0f,-1.0f, 1.0f,
-        1.0f, 1.0f, 1.0f,
-        1.0f, 1.0f,-1.0f,
-        -1.0f, 1.0f,-1.0f,
-        1.0f, 1.0f, 1.0f,
-        -1.0f, 1.0f,-1.0f,
-        -1.0f, 1.0f, 1.0f,
-        1.0f, 1.0f, 1.0f,
-        -1.0f, 1.0f, 1.0f,
-        1.0f,-1.0f, 1.0f
-    };
+    if (!fileIn.good())
+    {
+        std::cerr << "Could not load shader: " << filename << std::endl;
+        return string();
+    }
 
+    string stringBuffer(std::istreambuf_iterator<char>(fileIn), (std::istreambuf_iterator<char>()));
+    return stringBuffer;
+}
 
-    // One color for each vertex. They were generated randomly.
-    static const GLfloat g_color_buffer_data[] = {
-        0.583f,  0.771f,  0.014f,
-        0.609f,  0.115f,  0.436f,
-        0.327f,  0.483f,  0.844f,
-        0.822f,  0.569f,  0.201f,
-        0.435f,  0.602f,  0.223f,
-        0.310f,  0.747f,  0.185f,
-        0.597f,  0.770f,  0.761f,
-        0.559f,  0.436f,  0.730f,
-        0.359f,  0.583f,  0.152f,
-        0.483f,  0.596f,  0.789f,
-        0.559f,  0.861f,  0.639f,
-        0.195f,  0.548f,  0.859f,
-        0.014f,  0.184f,  0.576f,
-        0.771f,  0.328f,  0.970f,
-        0.406f,  0.615f,  0.116f,
-        0.676f,  0.977f,  0.133f,
-        0.971f,  0.572f,  0.833f,
-        0.140f,  0.616f,  0.489f,
-        0.997f,  0.513f,  0.064f,
-        0.945f,  0.719f,  0.592f,
-        0.543f,  0.021f,  0.978f,
-        0.279f,  0.317f,  0.505f,
-        0.167f,  0.620f,  0.077f,
-        0.347f,  0.857f,  0.137f,
-        0.055f,  0.953f,  0.042f,
-        0.714f,  0.505f,  0.345f,
-        0.783f,  0.290f,  0.734f,
-        0.722f,  0.645f,  0.174f,
-        0.302f,  0.455f,  0.848f,
-        0.225f,  0.587f,  0.040f,
-        0.517f,  0.713f,  0.338f,
-        0.053f,  0.959f,  0.120f,
-        0.393f,  0.621f,  0.362f,
-        0.673f,  0.211f,  0.457f,
-        0.820f,  0.883f,  0.371f,
-        0.982f,  0.099f,  0.879f
-    };
+bool compileShader(const hShader& shader)
+{
+    glCompileShader(shader.id);
+    GLint result = GL_FALSE;
+    glGetShaderiv(shader.id, GL_COMPILE_STATUS, &result);
 
-    glGenBuffers(1, &vertexBuffer);                 // Generate 1 buffer, put the resulting identifier in vertexBuffer
-    glBindBuffer(GL_ARRAY_BUFFER, vertexBuffer);    // The following commands will talk about our 'vertexBuffer' buffer
-    glBufferData(GL_ARRAY_BUFFER, sizeof(g_vertex_buffer_data), g_vertex_buffer_data, GL_STATIC_DRAW);  // Give our vertices to OpenGL.
+    if (!result)
+    {
+        std::cout << "Could not compile shader: " << shader.id << std::endl;
+        echoShaderLog(shader.id);
+        return false;
+    }
 
-    glGenBuffers(1, &colorBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, colorBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(g_color_buffer_data), g_color_buffer_data, GL_STATIC_DRAW);
+    return true;
+}
+
+void echoShaderLog(unsigned int shaderID)
+{
+    vector<char> infoLog;
+    GLint infoLen;
+    glGetShaderiv(shaderID, GL_INFO_LOG_LENGTH, &infoLen);
+    infoLog.resize(infoLen);
+
+    std::cerr << "Shader contains errors!" << std::endl;
+    glGetShaderInfoLog(shaderID, sizeof(infoLog), &infoLen, &infoLog[0]);
+
+    std::cerr << string(infoLog.begin(), infoLog.end()) << std::endl;
 }

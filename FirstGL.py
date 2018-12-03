@@ -47,7 +47,6 @@ class MyGLArea(Gtk.GLArea):
         self.add_tick_callback(self._tick)
         self.counter = 0
         self.frame_counter = 0
-        self.rot_y = Matrix44.identity()
         self.model_matrix = Matrix44.identity()
         self.view_matrix = Matrix44.identity()
         self.projection_matrix = Matrix44.identity()
@@ -102,14 +101,80 @@ class MyGLArea(Gtk.GLArea):
         vertex_array_object = glGenVertexArrays(1)
         glBindVertexArray(vertex_array_object)
 
-        vertices = np.array([-0.5, -0.5, 0.0,
-                             0.5, -0.5, 0.0,
-                             0.0, 0.5, 0.0
+        vertices = np.array([-1.0, -1.0, -1.0,
+                             -1.0, -1.0, 1.0,
+                             -1.0, 1.0, 1.0,
+                             1.0, 1.0, -1.0,
+                             -1.0, -1.0, -1.0,
+                             -1.0, 1.0, -1.0,
+                             1.0, -1.0, 1.0,
+                             -1.0, -1.0, -1.0,
+                             1.0, -1.0, -1.0,
+                             1.0, 1.0, -1.0,
+                             1.0, -1.0, -1.0,
+                             -1.0, -1.0, -1.0,
+                             -1.0, -1.0, -1.0,
+                             -1.0, 1.0, 1.0,
+                             -1.0, 1.0, -1.0,
+                             1.0, -1.0, 1.0,
+                             -1.0, -1.0, 1.0,
+                             -1.0, -1.0, -1.0,
+                             -1.0, 1.0, 1.0,
+                             -1.0, -1.0, 1.0,
+                             1.0, -1.0, 1.0,
+                             1.0, 1.0, 1.0,
+                             1.0, -1.0, -1.0,
+                             1.0, 1.0, -1.0,
+                             1.0, -1.0, -1.0,
+                             1.0, 1.0, 1.0,
+                             1.0, -1.0, 1.0,
+                             1.0, 1.0, 1.0,
+                             1.0, 1.0, -1.0,
+                             -1.0, 1.0, -1.0,
+                             1.0, 1.0, 1.0,
+                             -1.0, 1.0, -1.0,
+                             -1.0, 1.0, 1.0,
+                             1.0, 1.0, 1.0,
+                             -1.0, 1.0, 1.0,
+                             1.0, -1.0, 1.0
                              ], dtype=np.float32)
 
-        colors = np.array([0.583, 0.771, 0.014,
-                           0.609, 0.115, 0.436,
-                           0.327, 0.483, 0.844
+        colors = np.array([0.483, 0.596, 0.789,
+                           0.483, 0.596, 0.789,
+                           0.483, 0.596, 0.789,
+                           1.0, 0.0, 0.0,
+                           1.0, 0.0, 0.0,
+                           1.0, 0.0, 0.0,
+                           0.0, 1.0, 0.0,
+                           0.0, 1.0, 0.0,
+                           0.0, 1.0, 0.0,
+                           1.0, 0.0, 0.0,
+                           1.0, 0.0, 0.0,
+                           1.0, 0.0, 0.0,
+                           0.483, 0.596, 0.789,
+                           0.483, 0.596, 0.789,
+                           0.483, 0.596, 0.789,
+                           0.0, 1.0, 0.0,
+                           0.0, 1.0, 0.0,
+                           0.0, 1.0, 0.0,
+                           0.140, 0.616, 0.489,
+                           0.140, 0.616, 0.489,
+                           0.140, 0.616, 0.489,
+                           0.055, 0.953, 0.042,
+                           0.055, 0.953, 0.042,
+                           0.055, 0.953, 0.042,
+                           0.055, 0.953, 0.042,
+                           0.055, 0.953, 0.042,
+                           0.055, 0.953, 0.042,
+                           0.0, 0.0, 1.0,
+                           0.0, 0.0, 1.0,
+                           0.0, 0.0, 1.0,
+                           0.0, 0.0, 1.0,
+                           0.0, 0.0, 1.0,
+                           0.0, 0.0, 1.0,
+                           0.140, 0.616, 0.489,
+                           0.140, 0.616, 0.489,
+                           0.140, 0.616, 0.489,
                            ], dtype=np.float32)
 
         # Generate buffer to hold our vertices
@@ -131,14 +196,14 @@ class MyGLArea(Gtk.GLArea):
 
         glUseProgram(self.shader_prog)
 
-        eye = (0.0, 0.5, 1.0)
+        eye = (4.0, 3.0, 3.0)
         target = (0.0, 0.0, 0.0)
         up = (0.0, 1.0, 0.0)
 
         ct = time.clock()
         perspective_matrix = Matrix44.perspective_projection(45.0, WINDOW_WIDTH/WINDOW_HEIGHT, 0.1, 200.0)
         view_matrix = Matrix44.look_at(eye, target, up)
-        model_matrix = Matrix44.from_translation([0.0, 0.0, 0.0]) * pyrr.matrix44.create_from_axis_rotation((0.0, 1.0, 0.0), 4 * ct) * Matrix44.from_scale([0.5, 0.5, 0.5])
+        model_matrix = Matrix44.from_translation([0.0, 0.0, 0.0]) * pyrr.matrix44.create_from_axis_rotation((0.0, 1.0, 0.0), 4 * ct) * Matrix44.from_scale([1.0, 1.0, 1.0])
 
         MVP = perspective_matrix * view_matrix * model_matrix
 
@@ -159,7 +224,7 @@ class MyGLArea(Gtk.GLArea):
         glVertexAttribPointer(vertexColor, 3, GL_FLOAT, False, 0, ctypes.c_void_p(0))
 
 
-        glDrawArrays(GL_TRIANGLES, 0, 3)
+        glDrawArrays(GL_TRIANGLES, 0, 12*3)
 
 
         # Unbind the VAO first (Important)
