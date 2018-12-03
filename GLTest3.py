@@ -21,9 +21,9 @@ outputColor = vec4(1.0,0.0,0.0,1.0); //constant red.
 VERTEX_SOURCE = '''
 #version 330
 in vec4 position;
-uniform mat4 model;
+uniform mat4 MVP;
 void main(){
-gl_Position =  model * position;
+gl_Position =  MVP * position;
 }'''
 
 class MyGLArea(Gtk.GLArea):
@@ -124,9 +124,10 @@ class MyGLArea(Gtk.GLArea):
 
         glUseProgram(self.shader_prog)
 
-        self.model_loc = glGetUniformLocation(self.shader_prog, "model")
+
         ct = time.clock()
         self.rot_y = Matrix44.from_y_rotation(4*ct)
+        self.model_loc = glGetUniformLocation(self.shader_prog, "MVP")
         glUniformMatrix4fv(self.model_loc, 1, GL_FALSE, self.rot_y)
 
 

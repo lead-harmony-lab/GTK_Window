@@ -539,7 +539,7 @@ void EnableOpenGL(HWND hWnd, HDC* hDC, HGLRC* hRC)
 
     int glVersion[2] = {-1, -1}; // Set some default values for the version
     glGetIntegerv(GL_MAJOR_VERSION, &glVersion[0]); // Get back the OpenGL MAJOR version we are using
-    glGetIntegerv(GL_MINOR_VERSION, &glVersion[1]); // Get back the OpenGL MAJOR version we are using
+    glGetIntegerv(GL_MINOR_VERSION, &glVersion[1]); // Get back the OpenGL MINOR version we are using
 
     std::cout << "Using OpenGL: " << glVersion[0] << "." << glVersion[1] << std::endl; // Output which version of OpenGL we are using On Windows, you won\92t get a console for a Win32 Application, but a nifty trick to get console output, is to open up Command Prompt, navigate to your directory with your executable file, and use something like: \93program.exe > temp.txt\94
 
