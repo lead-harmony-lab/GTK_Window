@@ -685,6 +685,7 @@ void RenderNextDemoFrame()
 {
 
     See: https://github.com/cprogrammer1994/Headless-rendering-with-python/blob/master/main.py for additional information
+    !! See: https://github.com/Contraz/demosys-py/blob/master/examples/cubes/effects.py for GL effects
 
     float modelviewMatrix[16];
     float projectionMatrix[16];
