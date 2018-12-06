@@ -187,9 +187,9 @@ class MyGLArea(Gtk.GLArea):
         glBindBuffer(GL_ARRAY_BUFFER, self.color_buffer)
         glBufferData(GL_ARRAY_BUFFER, colors.nbytes, colors, GL_STATIC_DRAW)
 
-        self.display(vertex_array_object)
+        self.display()
 
-    def display(self, vertex_array_object):
+    def display(self):
 
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
