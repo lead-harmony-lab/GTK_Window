@@ -59,6 +59,8 @@ class MyGLArea(Gtk.GLArea):
         self.shader_prog = 0
         self.initialize = False
         self.VAO = 0
+        self.window_width = 0
+        self.window_height = 0
 
 
     def _tick(self, wi, clock):
@@ -84,6 +86,11 @@ class MyGLArea(Gtk.GLArea):
         print('Depth buffer Available %s' % bool(area.get_has_depth_buffer()))
 
         self.mvpMatrixLocationInShader = 0
+
+        window = area.get_allocation()
+
+        self.window_width = window.width
+        self.window_height = window.height
 
         # Initialize GL Scene
         glEnable(GL_DEPTH_TEST)
@@ -149,7 +156,7 @@ class MyGLArea(Gtk.GLArea):
         up = (0.0, 1.0, 0.0)
 
         ct = time.clock()
-        perspective_matrix = Matrix44.perspective_projection(45.0, WINDOW_WIDTH/WINDOW_HEIGHT, 0.1, 200.0)
+        perspective_matrix = Matrix44.perspective_projection(45.0, self.window_width/self.window_height, 0.1, 200.0)
         view_matrix = Matrix44.look_at(eye, target, up)
         model_matrix = Matrix44.from_translation([0.0, 0.0, 0.0]) * pyrr.matrix44.create_from_axis_rotation((0.0, 1.0, 0.0), 4 * ct) * Matrix44.from_scale([1.0, 1.0, 1.0])
 
@@ -182,12 +189,30 @@ class RootWidget(Gtk.Window):
     def __init__(self):
         win = Gtk.Window.__init__(self, title='GL Example')
         self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
+        self._is_fullscreen = True
 
         gl_area = MyGLArea()
         gl_area.set_has_depth_buffer(True)
         self.add(gl_area)
 
+    def on_key_release(self, widget, event):
+        if event.keyval == Gdk.KEY_Escape:
+            Gtk.main_quit()
+        elif event.keyval == Gdk.KEY_f:
+            self.fullscreen_mode()
+
+    def fullscreen_mode(self):
+        if self._is_fullscreen == True:
+            self.unfullscreen()
+            self._is_fullscreen = False
+        else:
+            self.fullscreen()
+            self._is_fullscreen = True
+
+
 win = RootWidget()
 win.connect("delete-event", Gtk.main_quit)
+win.connect("key-release-event", win.on_key_release)
 win.show_all()
+win.fullscreen()
 Gtk.main()
