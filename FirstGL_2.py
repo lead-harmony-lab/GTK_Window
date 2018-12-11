@@ -4,6 +4,7 @@ gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk, GLib
 from OpenGL.GL import *
 from OpenGL.GL import shaders
+import cairo
 import math
 import numpy as np
 import time
@@ -62,7 +63,6 @@ class MyGLArea(Gtk.GLArea):
         self.window_width = 0
         self.window_height = 0
 
-
     def _tick(self, wi, clock):
         ti = clock.get_frame_time()
         if ti - self.last_frame_time > 1000000:
@@ -96,10 +96,6 @@ class MyGLArea(Gtk.GLArea):
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LESS)
 
-
-
-
-
     def on_render(self, area, ctx):
         # Main Render Loop
         self.frame_counter += 1
@@ -116,9 +112,6 @@ class MyGLArea(Gtk.GLArea):
             VBO = glGenBuffers(1)
             glBindBuffer(GL_ARRAY_BUFFER, VBO)
             glBufferData(GL_ARRAY_BUFFER, self.model.nbytes, self.model, GL_STATIC_DRAW)
-
-            #print(self.model.nbytes)
-            #print(self.model.itemsize*3)
 
             # Get the layout position of the 'in_positions' parameter in the vertex shader and bind it.
             self.position_in = glGetAttribLocation(self.shader_prog, 'in_positions')
@@ -147,7 +140,6 @@ class MyGLArea(Gtk.GLArea):
 
         glUseProgram(self.shader_prog)
 
-
         glClearColor(0.0, 0.0, 0.0, 0.0)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -165,10 +157,8 @@ class MyGLArea(Gtk.GLArea):
         self.mvpMatrixLocationInShader = glGetUniformLocation(self.shader_prog, "MVP")
         glUniformMatrix4fv(self.mvpMatrixLocationInShader, 1, GL_FALSE, MVP)
 
-
         glBindVertexArray(self.VAO)
         glDrawArrays(GL_TRIANGLES, 0, len(self.obj.vertices))
-
 
         # Unbind the VAO first (Important)
         glBindVertexArray(0)
@@ -189,7 +179,8 @@ class RootWidget(Gtk.Window):
     def __init__(self):
         win = Gtk.Window.__init__(self, title='GL Example')
         self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
-        self._is_fullscreen = True
+        self.is_fullscreen = True
+        self.monitor_num_for_display = 0
 
         gl_area = MyGLArea()
         gl_area.set_has_depth_buffer(True)
@@ -209,10 +200,134 @@ class RootWidget(Gtk.Window):
             self.fullscreen()
             self._is_fullscreen = True
 
+    def popup_run_dialog(self):
+        dialog = PopUp(self)
+        response = dialog.run()
+        dialog.destroy()
+
+        if response == Gtk.ResponseType.OK:
+            return True
+        elif response == Gtk.ResponseType.CANCEL:
+            return False
+
+class PopUp(Gtk.Dialog):
+
+    def __init__(self, parent):
+        Gtk.Dialog.__init__(self, "Demo Launcher", parent, Gtk.DialogFlags.MODAL, (
+            "Quit", Gtk.ResponseType.CANCEL,
+            "Run", Gtk.ResponseType.OK
+        ))
+        self.set_default_size(200, 300)
+        self.set_border_width(20)
+        self.set_decorated(False)
+        self.set_app_paintable(True)
+        self.connect('draw', self.draw)
+
+        area = self.get_content_area()
+        box_outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        area.add(box_outer)
+
+        box_outer.add(Gtk.Label("Select a monitor to display this application: "))
+
+        grid = Gtk.Grid(orientation=Gtk.Orientation.VERTICAL)
+        box_outer.add(grid)
+
+        group = Gtk.RadioButton.new(None)
+
+        display = Gdk.Display.get_default()
+        num_of_monitors = display.get_n_monitors()
+
+        for i in range(num_of_monitors):
+
+            monitor = display.get_monitor(i)
+            geometry = monitor.get_geometry()
+            scale_factor = monitor.get_scale_factor()
+            width = scale_factor * geometry.width
+            height = scale_factor * geometry.height
+
+            if monitor.is_primary():
+                label = "Monitor #" + repr(i) + " - " + repr(width) + " X " + repr(height) + " (PRIMARY)"
+
+                button = Gtk.RadioButton.new_with_label_from_widget(group, label)
+                button.connect("toggled", self.on_button_toggled, i, parent)
+                button.set_active(True)
+
+            else:
+                label = "Monitor #" + repr(i) + " - " + repr(width) + " X " + repr(height)
+
+                button = Gtk.RadioButton.new_with_label_from_widget(group, label)
+                button.connect("toggled", self.on_button_toggled, i, parent)
+
+            grid.add(button)
+
+        checkbutton = Gtk.CheckButton("Fullscreen Window")
+        checkbutton.connect("toggled", self.on_fullscreen_toggled, "fullscreen", parent)
+        checkbutton.set_active(True)
+        grid.add(checkbutton)
+
+        self.show_all()
+
+    def on_button_toggled(self, button, name, parent):
+        if button.get_active():
+            parent.monitor_num_for_display = name
+
+    def on_fullscreen_toggled(self, button, name, parent):
+        if button.get_active():
+            parent.is_fullscreen = True
+        else:
+            parent.is_fullscreen = False
+
+    def draw(self, widget, context):
+        context.set_source_rgba(1, 1, 1, 0)
+        context.set_operator(cairo.OPERATOR_SOURCE)
+
+        # Draw some shapes into the context here
+        alloc = widget.get_allocation()
+
+        width = alloc.width
+        height = alloc.height
+
+        radius = 0.5 * min(width, height) - 10
+        xc = width / 2.
+        yc = height / 2.
+
+        target = context.get_target()
+        overlay = target.create_similar(cairo.CONTENT_COLOR_ALPHA, width, height)
+
+        # Draw a black circle on the overlay
+        overlay_cr = cairo.Context(overlay)
+        overlay_cr.set_source_rgb(0, 0, 0)
+
+        overlay_cr.save()
+
+        overlay_cr.translate(xc, yc)
+        overlay_cr.scale(1.0, radius / radius)
+        overlay_cr.move_to(radius, 0.0)
+        overlay_cr.arc(0, 0, radius, 0, 2 * math.pi)
+        overlay_cr.close_path()
+
+        overlay_cr.restore()
+
+        overlay_cr.fill()
+
+
+        context.set_source_surface(overlay, 0, 0)
+
+
+
+        context.paint()
+        context.set_operator(cairo.OPERATOR_OVER)
 
 win = RootWidget()
 win.connect("delete-event", Gtk.main_quit)
 win.connect("key-release-event", win.on_key_release)
-win.show_all()
-win.fullscreen()
-Gtk.main()
+
+if win.popup_run_dialog():
+    if win.is_fullscreen:
+        screen = Gdk.Screen.get_default()
+        win.fullscreen_on_monitor(screen, win.monitor_num_for_display)
+    win.show_all()
+    Gtk.main()
+
+
+

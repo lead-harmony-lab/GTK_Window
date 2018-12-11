@@ -21,7 +21,7 @@ class MainWindow(Gtk.Window):
         #15 How to create pop-up dialogue
         button = Gtk.Button("Open a PopUp")
         button.connect("clicked", self.popup_clicked)
-        #self.add(button)
+        self.add(button)
 
         #12 How to create a tree view
         # List of tuples containing data to display in tree view
@@ -264,7 +264,7 @@ class MainWindow(Gtk.Window):
 
         #4 How to add a box
         self.box = Gtk.Box(spacing=10)
-        self.add(self.box)
+        #self.add(self.box)
 
         # How to pack buttons in a box
         self.bacon_button = Gtk.Button(label="Bacon")
