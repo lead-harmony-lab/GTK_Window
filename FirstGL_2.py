@@ -8,6 +8,7 @@ import cairo
 import math
 import numpy as np
 import time
+# Run with version of pyassimp 3.3
 from pyassimp import *
 from PIL import Image
 
@@ -147,7 +148,7 @@ class MyGLArea(Gtk.GLArea):
         target = (0.0, 7.0, 0.0)
         up = (0.0, 1.0, 0.0)
 
-        ct = time.clock()
+        ct = time.process_time()
         perspective_matrix = Matrix44.perspective_projection(45.0, self.window_width/self.window_height, 0.1, 200.0)
         view_matrix = Matrix44.look_at(eye, target, up)
         model_matrix = Matrix44.from_translation([0.0, 0.0, 0.0]) * pyrr.matrix44.create_from_axis_rotation((0.0, 1.0, 0.0), 4 * ct) * Matrix44.from_scale([1.0, 1.0, 1.0])
@@ -213,10 +214,11 @@ class RootWidget(Gtk.Window):
 class PopUp(Gtk.Dialog):
 
     def __init__(self, parent):
-        Gtk.Dialog.__init__(self, "Demo Launcher", parent, Gtk.DialogFlags.MODAL, (
+        Gtk.Dialog.__init__(self, "Demo Launcher", parent, modal=True)
+        self.add_buttons(
             "Quit", Gtk.ResponseType.CANCEL,
             "Run", Gtk.ResponseType.OK
-        ))
+        )
         self.set_default_size(200, 300)
         self.set_border_width(20)
         self.set_decorated(False)
@@ -227,7 +229,6 @@ class PopUp(Gtk.Dialog):
         box_outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         area.add(box_outer)
 
-        box_outer.add(Gtk.Label("Select a monitor to display this application: "))
 
         grid = Gtk.Grid(orientation=Gtk.Orientation.VERTICAL)
         box_outer.add(grid)
@@ -260,7 +261,7 @@ class PopUp(Gtk.Dialog):
 
             grid.add(button)
 
-        checkbutton = Gtk.CheckButton("Fullscreen Window")
+        checkbutton = Gtk.CheckButton.new_with_label("Fullscreen Window")
         checkbutton.connect("toggled", self.on_fullscreen_toggled, "fullscreen", parent)
         checkbutton.set_active(True)
         grid.add(checkbutton)

@@ -1,4 +1,3 @@
-
 import gi, pyrr
 from pyrr import Matrix44, Vector4, Vector3, Quaternion
 gi.require_version('Gtk', '3.0')
@@ -8,6 +7,9 @@ from OpenGL.GL import shaders
 import math
 import numpy as np
 import time
+from pyassimp import *
+from PIL import Image
+
 
 # Search through https://www.mail-archive.com/opensuse-commit@opensuse.org/msg103010.html
 
@@ -51,6 +53,7 @@ class MyGLArea(Gtk.GLArea):
         self.model_matrix = Matrix44.identity()
         self.view_matrix = Matrix44.identity()
         self.projection_matrix = Matrix44.identity()
+        self.scene = load('models/char_01_triangulated.obj')
         self.vertex_buffer = 0
         self.color_buffer = 0
 
@@ -243,7 +246,7 @@ class MyGLArea(Gtk.GLArea):
 
 class RootWidget(Gtk.Window):
     def __init__(self):
-        win = Gtk.Window.__init__(self, title='GL Example')
+        win = Gtk.Window.__init__(self, title='Claver Alpha')
         self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
 
         gl_area = MyGLArea()

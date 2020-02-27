@@ -14,12 +14,12 @@ class MainWindow(Gtk.Window):
         layout_16 = Gtk.Box(spacing=6)
         #self.add(layout_16)
 
-        button = Gtk.Button("Choose File")
+        button = Gtk.Button.new_with_label("Choose File")
         button.connect("clicked", self.on_file_clicked)
         layout_16.add(button)
 
         #15 How to create pop-up dialogue
-        button = Gtk.Button("Open a PopUp")
+        button = Gtk.Button.new_with_label("Open a PopUp")
         button.connect("clicked", self.popup_clicked)
         self.add(button)
 
