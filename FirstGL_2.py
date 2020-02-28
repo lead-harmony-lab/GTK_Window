@@ -251,6 +251,7 @@ class PopUp(Gtk.Dialog):
                 label = "Monitor #" + repr(i) + " - " + repr(width) + " X " + repr(height) + " (PRIMARY)"
 
                 button = Gtk.RadioButton.new_with_label_from_widget(group, label)
+                button.get_style_context().add_class('blue-text')
                 button.connect("toggled", self.on_button_toggled, i, parent)
                 button.set_active(True)
 
@@ -258,11 +259,13 @@ class PopUp(Gtk.Dialog):
                 label = "Monitor #" + repr(i) + " - " + repr(width) + " X " + repr(height)
 
                 button = Gtk.RadioButton.new_with_label_from_widget(group, label)
+                button.get_style_context().add_class('blue-text')
                 button.connect("toggled", self.on_button_toggled, i, parent)
 
             grid.add(button)
 
         checkbutton = Gtk.CheckButton.new_with_label("Fullscreen Window")
+        checkbutton.get_style_context().add_class('blue-text')
         checkbutton.connect("toggled", self.on_fullscreen_toggled, "fullscreen", parent)
         checkbutton.set_active(True)
         grid.add(checkbutton)
