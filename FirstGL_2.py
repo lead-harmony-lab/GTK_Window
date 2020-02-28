@@ -219,19 +219,20 @@ class PopUp(Gtk.Dialog):
             "Quit", Gtk.ResponseType.CANCEL,
             "Run", Gtk.ResponseType.OK
         )
-        self.set_default_size(200, 300)
+        self.set_default_size(651, 397)
         self.set_border_width(20)
         self.set_decorated(False)
         self.set_app_paintable(True)
         self.connect('draw', self.draw)
 
         area = self.get_content_area()
-        box_outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        area.add(box_outer)
-
 
         grid = Gtk.Grid(orientation=Gtk.Orientation.VERTICAL)
-        box_outer.add(grid)
+        area.add(grid)
+        #grid.get_style_context().add_class('yellow-background')
+        grid.set_margin_top(260)
+        grid.set_margin_start(120)
+
 
         group = Gtk.RadioButton.new(None)
 
@@ -279,6 +280,7 @@ class PopUp(Gtk.Dialog):
             parent.is_fullscreen = False
 
     def draw(self, widget, context):
+        self.image = cairo.ImageSurface.create_from_png("claver-splash.png")
         context.set_source_rgba(1, 1, 1, 0)
         context.set_operator(cairo.OPERATOR_SOURCE)
 
@@ -312,7 +314,8 @@ class PopUp(Gtk.Dialog):
         overlay_cr.fill()
 
 
-        context.set_source_surface(overlay, 0, 0)
+        #context.set_source_surface(overlay, 0, 0)
+        context.set_source_surface(self.image, 0, 0)
 
 
 
@@ -322,6 +325,12 @@ class PopUp(Gtk.Dialog):
 win = RootWidget()
 win.connect("delete-event", Gtk.main_quit)
 win.connect("key-release-event", win.on_key_release)
+
+cssProvider = Gtk.CssProvider()
+cssProvider.load_from_path('style.css')
+screen = Gdk.Screen.get_default()
+styleContext = Gtk.StyleContext()
+styleContext.add_provider_for_screen(screen, cssProvider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
 
 if win.popup_run_dialog():
     if win.is_fullscreen:
