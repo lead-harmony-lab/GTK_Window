@@ -1,7 +1,9 @@
-import gi, pyrr
-from pyrr import Matrix44, Vector4, Vector3, Quaternion
+import gi
+import pyrr
+from pyrr import Matrix44
+
 gi.require_version('Gtk', '3.0')
-from gi.repository import Gtk, Gdk, GLib
+from gi.repository import Gtk, Gdk
 from OpenGL.GL import *
 from OpenGL.GL import shaders
 import cairo
@@ -39,6 +41,13 @@ v_texCoords = in_texCoords.xy;
 WINDOW_WIDTH=800
 WINDOW_HEIGHT=500
 
+
+def recur_node(node, level=0):
+    print("  " + "\t" * level + "- " + str(node))
+    for child in node.children:
+        recur_node(child, level + 1)
+
+
 class MyGLArea(Gtk.GLArea):
     def __init__(self):
         Gtk.GLArea.__init__(self)
@@ -53,7 +62,8 @@ class MyGLArea(Gtk.GLArea):
         self.model_matrix = Matrix44.identity()
         self.view_matrix = Matrix44.identity()
         self.projection_matrix = Matrix44.identity()
-        self.scene = load('models/char_01_triangulated.obj')
+        #self.scene = load('models/char_01_triangulated.obj')
+        self.scene = load('models/snake1.obj')    #Pyassimp function
         self.obj = self.scene.meshes[0]
         self.model = np.concatenate((self.obj.vertices, self.obj.texturecoords[0]), axis=0)
         #print(self.obj.texturecoords[0])  #  The obj file only uses two values for the texture coordinate but pyassimp adds a third value. This is wy we use a vec3 in the shader for texCoords
@@ -63,6 +73,46 @@ class MyGLArea(Gtk.GLArea):
         self.VAO = 0
         self.window_width = 0
         self.window_height = 0
+        # Begin Pyassimp functions
+        print("SCENE:")
+        print("   meshes: " + str(len(self.scene.meshes)))
+        print("   materials: " + str(len(self.scene.materials)))
+        print("   textures: " + str(len(self.scene.textures)))
+        print("NODES:")
+        recur_node(self.scene.rootnode)
+        print("MESHES")
+        for index, mesh in enumerate(self.scene.meshes):
+            print("   MESH " + str(index+1))
+            print("      material id: " + str(mesh.materialindex+1))
+            print("      vertices: " + str(len(mesh.vertices)))
+            print("      first 3 verts:\n" + str(mesh.normals[:3]))
+            if mesh.normals.any():
+                print("      first 3 normals:\n" + str(mesh.normals[:3]))
+            else:
+                print("      no normals")
+            print("      colors: " + str(len(mesh.colors)))
+            self.tcs = mesh.texturecoords
+            if self.tcs.any():
+                for tc_index, tc in enumerate(self.tcs):
+                    print("      texture-coords " + str(tc_index) + ": " + str(len(self.tcs[tc_index])) + "      first 3: " + str(self.tcs[tc_index][:3]))
+            else:
+                print("      no texture coordinates")
+            print("      uv-component-count: " + str(len(mesh.numuvcomponents)))
+            print("      faces: " + str(len(mesh.faces)) + " -> first 3:\n" + str(mesh.faces[:3]))
+            print("      bones: " + str(len(mesh.bones)) + " -> first: " + str([str(b) for b in mesh.bones[:3]]))
+        print("MATERIALS:")
+        for index, material in enumerate (self.scene.materials):
+            print("   MATERIAL (id: " + str(index+1) + ")")
+            for key, value in material.properties.items():
+                print("      %s: %s" % (key, value))
+        print("TEXTURES:")
+        for index, texture in enumerate(self.scene.textures):
+            print("   TEXTURE " + str(index+1))
+            print("      width: " + str(texture.width))
+            print("      height: " + str(texture.height))
+            print("      hint: " + str(texture.achformathint))
+            print("      data (size): " + str(len(texture.data)))
+        # End Pyassimp functions
 
     def _tick(self, wi, clock):
         ti = clock.get_frame_time()
@@ -79,7 +129,7 @@ class MyGLArea(Gtk.GLArea):
 
         # Print information about our OpenGL Context
         ctx = self.get_context()
-        print('is legacy context %s' % Gdk.GLContext.is_legacy(ctx))
+        print('Using legacy context: %s' % Gdk.GLContext.is_legacy(ctx))
         major, minor = ctx.get_required_version()
         print("Using OpenGL Version " + str(major) + "." + str(minor))
         print('glGenVertexArrays Available %s' % bool(glGenVertexArrays))
@@ -133,7 +183,8 @@ class MyGLArea(Gtk.GLArea):
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
             # Load Image
-            image = Image.open("models/Chibi_Texture_D.png")
+            #image = Image.open("models/Chibi_Texture_D.png")
+            image = Image.open("models/Skin.png")
             flipped_image = image.transpose(Image.FLIP_TOP_BOTTOM)
             img_data = np.array(list(flipped_image.getdata()), np.uint8)
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
@@ -174,6 +225,7 @@ class MyGLArea(Gtk.GLArea):
         self.queue_draw()
 
     def on_unrealize(self, area):
+        release(self.scene)     #Pyassimp function
         print("closing time")
 
 class RootWidget(Gtk.Window):
@@ -221,7 +273,7 @@ class PopUp(Gtk.Dialog):
         )
         self.set_default_size(651, 397)
         self.set_border_width(20)
-        self.set_decorated(False)
+        self.set_decorated(False) # Creates a borderless window without a title bar
         self.set_app_paintable(True)
         self.connect('draw', self.draw)
 

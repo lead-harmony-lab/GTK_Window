@@ -1,3 +1,5 @@
 .red-background { background-image: none; background-color: blue; }
 .yellow-background { background-image: none; background-color: rgb(255, 255, 0); }
-.blue-text { color: blue; }
+.blue-text:focus { color: green; }
+.blue-text:hover { color: orange; }
+.blue-text { color: #135e94; }
