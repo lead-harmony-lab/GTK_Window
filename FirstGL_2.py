@@ -63,7 +63,7 @@ class MyGLArea(Gtk.GLArea):
         self.view_matrix = Matrix44.identity()
         self.projection_matrix = Matrix44.identity()
         #self.scene = load('models/char_01_triangulated.obj')
-        self.scene = load('models/snake1.obj')    #Pyassimp function
+        self.scene = load('models/snake.fbx')    #Pyassimp function
         self.obj = self.scene.meshes[0]
         self.model = np.concatenate((self.obj.vertices, self.obj.texturecoords[0]), axis=0)
         #print(self.obj.texturecoords[0])  #  The obj file only uses two values for the texture coordinate but pyassimp adds a third value. This is wy we use a vec3 in the shader for texCoords
