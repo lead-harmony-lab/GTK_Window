@@ -1,17 +1,17 @@
 import gi
-import pyrr
-from pyrr import Matrix44
-
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk
+import pyrr
+from pyrr import Matrix44
+from pyassimp import *
+from pyassimp.helper import get_bounding_box
 from OpenGL.GL import *
-from OpenGL.GL import shaders
+from OpenGL.GL.shaders import compileProgram, compileShader
 import cairo
 import math
 import numpy as np
 import time
-# Run with version of pyassimp 3.3
-from pyassimp import *
+
 from PIL import Image
 
 # Search through https://www.mail-archive.com/opensuse-commit@opensuse.org/msg103010.html
@@ -34,8 +34,8 @@ out vec2 v_texCoords;
 
 uniform mat4 MVP;
 void main(){
-gl_Position =  MVP * vec4(in_positions, 1.0f);
-v_texCoords = in_texCoords.xy;
+    gl_Position =  MVP * vec4(in_positions, 1.0f);
+    v_texCoords = in_texCoords.xy;
 }'''
 
 WINDOW_WIDTH=800
@@ -55,27 +55,17 @@ class MyGLArea(Gtk.GLArea):
         self.connect("realize", self.on_realize)
         self.connect("unrealize", self.on_unrealize)  # Catch this signal to clean up buffer objects and shaders
         self.connect("render", self.on_render)
+        self.connect("resize", self.on_resize)
         self.last_frame_time = 0
         self.add_tick_callback(self._tick)
         self.counter = 0
         self.frame_counter = 0
-        self.model_matrix = Matrix44.identity()
-        self.view_matrix = Matrix44.identity()
-        self.projection_matrix = Matrix44.identity()
-        #self.scene = load('models/char_01_triangulated.obj')
-        self.scene = load('models/snake.fbx')    #Pyassimp function
-        self.obj = self.scene.meshes[0]
-        self.model = np.concatenate((self.obj.vertices, self.obj.texturecoords[0]), axis=0)
-        #print(self.obj.texturecoords[0])  #  The obj file only uses two values for the texture coordinate but pyassimp adds a third value. This is wy we use a vec3 in the shader for texCoords
-        self.texture_offset = self.model.itemsize * (len(self.model) // 2) * 3
-        self.shader_prog = 0
-        self.initialize = False
-        self.VAO = 0
-        self.window_width = 0
-        self.window_height = 0
+
+        """
         # Begin Pyassimp functions
         print("SCENE:")
         print("   meshes: " + str(len(self.scene.meshes)))
+        print("   total faces: %d" % sum([len(mesh.faces) for mesh in self.scene.meshes]))
         print("   materials: " + str(len(self.scene.materials)))
         print("   textures: " + str(len(self.scene.textures)))
         print("NODES:")
@@ -85,6 +75,13 @@ class MyGLArea(Gtk.GLArea):
             print("   MESH " + str(index+1))
             print("      material id: " + str(mesh.materialindex+1))
             print("      vertices: " + str(len(mesh.vertices)))
+            print("      faces: " + str(len(mesh.faces)))
+            print("      normals: " + str(len(mesh.normals)))
+            self.bb_min, self.bb_max = get_bounding_box(self.scene)
+            print("      bounding box:" + str(self.bb_min) + " - " + str(self.bb_max))
+
+            self.scene_center = [(a + b) / 2. for a, b in zip(self.bb_min, self.bb_max)]
+            print("      scene center: ", self.scene_center)
             print("      first 3 verts:\n" + str(mesh.normals[:3]))
             if mesh.normals.any():
                 print("      first 3 normals:\n" + str(mesh.normals[:3]))
@@ -113,6 +110,7 @@ class MyGLArea(Gtk.GLArea):
             print("      hint: " + str(texture.achformathint))
             print("      data (size): " + str(len(texture.data)))
         # End Pyassimp functions
+        """
 
     def _tick(self, wi, clock):
         ti = clock.get_frame_time()
@@ -129,6 +127,7 @@ class MyGLArea(Gtk.GLArea):
 
         # Print information about our OpenGL Context
         ctx = self.get_context()
+        ctx.make_current()
         print('Using legacy context: %s' % Gdk.GLContext.is_legacy(ctx))
         major, minor = ctx.get_required_version()
         print("Using OpenGL Version " + str(major) + "." + str(minor))
@@ -136,59 +135,68 @@ class MyGLArea(Gtk.GLArea):
         print('Alpha Available %s' % bool(area.get_has_alpha()))
         print('Depth buffer Available %s' % bool(area.get_has_depth_buffer()))
 
-        self.mvpMatrixLocationInShader = 0
-
+        # Get information about current GTK GLArea canvas
         window = area.get_allocation()
-
-        self.window_width = window.width
-        self.window_height = window.height
+        # Construct perspective matrix using width and height of window allocated by GTK
+        self.perspective_matrix = Matrix44.perspective_projection(45.0, window.width / window.height, 0.1, 200.0)
 
         # Initialize GL Scene
         glEnable(GL_DEPTH_TEST)
         glDepthFunc(GL_LESS)
 
+        # Pyassimp function
+        self.scene = load('models/NewSnake1.fbx')
+        self.blenderModel = self.scene.meshes[0]
+        print("Name of model being loaded: ", self.blenderModel)
+        self.model = np.concatenate((self.blenderModel.vertices, self.blenderModel.texturecoords[0]), axis=0)
+
+        VERTEX_SHADER_PROG = compileShader(VERTEX_SOURCE, GL_VERTEX_SHADER)
+        FRAGMENT_SHADER_PROG = compileShader(FRAGMENT_SOURCE, GL_FRAGMENT_SHADER)
+        self.shader_prog = compileProgram(VERTEX_SHADER_PROG, FRAGMENT_SHADER_PROG)
+
+        self.VAO = glGenVertexArrays(1)
+        glBindVertexArray(self.VAO)
+
+        # Generate buffer object names - paramater specifies number of names to generate
+        self.VBO = glGenBuffers(1)
+        # Bind a named buffer object to a target (this is a gl constant)
+        glBindBuffer(GL_ARRAY_BUFFER, self.VBO)
+        # Creates a new data store for the buffer object currently bound to target. Static_Draw indicates teh store contents will be modified once and used many times.
+        # Parameter #2 is equal to the number of vertices in model * 4 bytes
+        glBufferData(GL_ARRAY_BUFFER, self.model.nbytes, self.model, GL_STATIC_DRAW)
+
+        # Get the 'position layout' (index of the generic vertex attribute) of the 'in_positions' parameter from the vertex shader program and store it.
+        self.position_in = glGetAttribLocation(self.shader_prog, 'in_positions')
+        glEnableVertexAttribArray(self.position_in)
+        # Describe the 'position layout' data in the buffer
+        # ctypes.c_void_p(0) specifies the offset location in the buffer to begin reading data. Here it reads from the start of the buffer.
+        # self.model.itemsize*3 specifies the stride (how to step through the data in the buffer). This is important for telling OpenGL how to step through a buffer having concatinated vertex and color data (see: https://youtu.be/bmCYgoCAyMQ).
+        glVertexAttribPointer(self.position_in, 3, GL_FLOAT, GL_FALSE, self.model.itemsize * 3, ctypes.c_void_p(0))
+
+        # Get the layout position of the 'in_positions' parameter in the vertex shader and bind it.
+        self.texture_in = glGetAttribLocation(self.shader_prog, 'in_texCoords')
+        self.texture_offset = self.model.itemsize * (len(self.model) // 2) * 3
+        # Describe the position data layout in the buffer
+        glVertexAttribPointer(self.texture_in, 3, GL_FLOAT, GL_FALSE, self.model.itemsize * 3, ctypes.c_void_p(self.texture_offset))
+        glEnableVertexAttribArray(self.texture_in)
+
+        texture = glGenTextures(1)
+        glBindTexture(GL_TEXTURE_2D, texture)
+        # Set the texture wrapping parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+        # Set texture filtering parameters
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
+        # Load Image
+        image = Image.open("models/NewSnakeSkin.png")
+        flipped_image = image.transpose(Image.FLIP_TOP_BOTTOM)
+        img_data = np.array(list(flipped_image.getdata()), np.uint8)
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
+
     def on_render(self, area, ctx):
         # Main Render Loop
         self.frame_counter += 1
-        ctx.make_current()
-
-        if self.initialize == False:
-            VERTEX_SHADER_PROG = shaders.compileShader(VERTEX_SOURCE, GL_VERTEX_SHADER)
-            FRAGMENT_SHADER_PROG = shaders.compileShader(FRAGMENT_SOURCE, GL_FRAGMENT_SHADER)
-            self.shader_prog = shaders.compileProgram(VERTEX_SHADER_PROG, FRAGMENT_SHADER_PROG)
-
-            self.VAO = glGenVertexArrays(1)
-            glBindVertexArray(self.VAO)
-
-            VBO = glGenBuffers(1)
-            glBindBuffer(GL_ARRAY_BUFFER, VBO)
-            glBufferData(GL_ARRAY_BUFFER, self.model.nbytes, self.model, GL_STATIC_DRAW)
-
-            # Get the layout position of the 'in_positions' parameter in the vertex shader and bind it.
-            self.position_in = glGetAttribLocation(self.shader_prog, 'in_positions')
-            glVertexAttribPointer(self.position_in, 3, GL_FLOAT, GL_FALSE, self.model.itemsize * 3, ctypes.c_void_p(0))  # Describe the position data layout in the buffer
-            glEnableVertexAttribArray(self.position_in)
-
-            # Get the layout position of the 'in_positions' parameter in the vertex shader and bind it.
-            self.texture_in = glGetAttribLocation(self.shader_prog, 'in_texCoords')
-            glVertexAttribPointer(self.texture_in, 3, GL_FLOAT, GL_FALSE, self.model.itemsize * 3, ctypes.c_void_p(self.texture_offset))  # Describe the position data layout in the buffer
-            glEnableVertexAttribArray(self.texture_in)
-
-            texture = glGenTextures(1)
-            glBindTexture(GL_TEXTURE_2D, texture)
-            # Set the texture wrapping parameters
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
-            # Set texture filtering parameters
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-            # Load Image
-            #image = Image.open("models/Chibi_Texture_D.png")
-            image = Image.open("models/Skin.png")
-            flipped_image = image.transpose(Image.FLIP_TOP_BOTTOM)
-            img_data = np.array(list(flipped_image.getdata()), np.uint8)
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
-            self.initialize = True
 
         glUseProgram(self.shader_prog)
 
@@ -200,17 +208,17 @@ class MyGLArea(Gtk.GLArea):
         up = (0.0, 1.0, 0.0)
 
         ct = time.process_time()
-        perspective_matrix = Matrix44.perspective_projection(45.0, self.window_width/self.window_height, 0.1, 200.0)
+
         view_matrix = Matrix44.look_at(eye, target, up)
         model_matrix = Matrix44.from_translation([0.0, 0.0, 0.0]) * pyrr.matrix44.create_from_axis_rotation((0.0, 1.0, 0.0), 4 * ct) * Matrix44.from_scale([1.0, 1.0, 1.0])
 
-        MVP = perspective_matrix * view_matrix * model_matrix
+        MVP = self.perspective_matrix * view_matrix * model_matrix
 
         self.mvpMatrixLocationInShader = glGetUniformLocation(self.shader_prog, "MVP")
         glUniformMatrix4fv(self.mvpMatrixLocationInShader, 1, GL_FALSE, MVP)
 
         glBindVertexArray(self.VAO)
-        glDrawArrays(GL_TRIANGLES, 0, len(self.obj.vertices))
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, len(self.blenderModel.vertices))
 
         # Unbind the VAO first (Important)
         glBindVertexArray(0)
@@ -228,9 +236,12 @@ class MyGLArea(Gtk.GLArea):
         release(self.scene)     #Pyassimp function
         print("closing time")
 
+    def on_resize(self, area, width, height):
+        self.perspective_matrix = Matrix44.perspective_projection(45.0, width / height, 0.1, 200.0)
+
 class RootWidget(Gtk.Window):
     def __init__(self):
-        win = Gtk.Window.__init__(self, title='GL Example')
+        Gtk.Window.__init__(self, title='GL Example')
         self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.is_fullscreen = True
         self.monitor_num_for_display = 0
