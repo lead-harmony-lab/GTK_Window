@@ -145,7 +145,8 @@ class MyGLArea(Gtk.GLArea):
         glDepthFunc(GL_LESS)
 
         # Pyassimp function
-        self.scene = load('models/NewSnake1.fbx')
+        #self.scene = load('models/NewSnake1.fbx')
+        self.scene = load('models/char_01_triangulated.obj')
         self.blenderModel = self.scene.meshes[0]
         print("Name of model being loaded: ", self.blenderModel)
         self.model = np.concatenate((self.blenderModel.vertices, self.blenderModel.texturecoords[0]), axis=0)
@@ -189,7 +190,8 @@ class MyGLArea(Gtk.GLArea):
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
         # Load Image
-        image = Image.open("models/NewSnakeSkin.png")
+        #image = Image.open("models/NewSnakeSkin.png")
+        image = Image.open("models/Chibi_Texture_D.png")
         flipped_image = image.transpose(Image.FLIP_TOP_BOTTOM)
         img_data = np.array(list(flipped_image.getdata()), np.uint8)
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, image.width, image.height, 0, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
@@ -245,7 +247,7 @@ class RootWidget(Gtk.Window):
         self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
         self.is_fullscreen = True
         self.monitor_num_for_display = 0
-
+                                        
         gl_area = MyGLArea()
         gl_area.set_has_depth_buffer(True)
         self.add(gl_area)
