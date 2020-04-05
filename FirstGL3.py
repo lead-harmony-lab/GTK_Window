@@ -1,12 +1,18 @@
 import gi
+import sys
 gi.require_version('Gtk', '3.0')
 from gi.repository import Gtk, Gdk
 import cairo
 
-class RootWidget(Gtk.Window):
+class RootWidget(Gtk.Application):
     def __init__(self):
-        Gtk.Window.__init__(self, title='GL Example')
-        self.set_default_size(500, 500)
+        Gtk.Application.__init__(self)
+
+    def do_activate(self):
+        window = Gtk.Window(application=self)
+        window.set_title("GNOME")
+        window.set_default_size(500, 500)
+        window.show_all()
 
     def popup_run_dialog(self):
         dialog = PopUp(self)
@@ -26,7 +32,7 @@ class PopUp(Gtk.Dialog):
             "Run", Gtk.ResponseType.OK
         )
         self.set_default_size(651, 397)
-        #self.set_decorated(False)  # Creates a borderless window without a title bar
+        self.set_decorated(False)  # Creates a borderless window without a title bar
         self.set_app_paintable(True)
         self.connect('draw', self.draw)
         self.show_all()
@@ -40,11 +46,6 @@ class PopUp(Gtk.Dialog):
         context.set_operator(cairo.OPERATOR_OVER)
 
 win = RootWidget()
-win.connect("delete-event", Gtk.main_quit)
-
 if win.popup_run_dialog():
-    win.show_all()
-    Gtk.main()
-
-
-
+    exit_status = win.run(sys.argv)
+    sys.exit(exit_status)
