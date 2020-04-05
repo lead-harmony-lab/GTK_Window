@@ -245,7 +245,7 @@ class RootWidget(Gtk.Window):
     def __init__(self):
         Gtk.Window.__init__(self, title='GL Example')
         self.set_default_size(WINDOW_WIDTH, WINDOW_HEIGHT)
-        self.is_fullscreen = True
+        self._is_fullscreen = True
         self.monitor_num_for_display = 0
                                         
         gl_area = MyGLArea()
@@ -402,8 +402,7 @@ styleContext.add_provider_for_screen(screen, cssProvider, Gtk.STYLE_PROVIDER_PRI
 
 if win.popup_run_dialog():
     if win.is_fullscreen:
-        screen = Gdk.Screen.get_default()
-        win.fullscreen_on_monitor(screen, win.monitor_num_for_display)
+        win.fullscreen_on_monitor(Gdk.Screen.get_default(), win.monitor_num_for_display)
     win.show_all()
     Gtk.main()
 
