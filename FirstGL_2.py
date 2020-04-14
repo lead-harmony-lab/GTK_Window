@@ -57,7 +57,7 @@ class MyGLArea(Gtk.GLArea):
         self.connect("render", self.on_render)
         self.connect("resize", self.on_resize)
         self.last_frame_time = 0
-        self.add_tick_callback(self._tick)
+        self.add_tick_callback(self.tick)
         self.counter = 0
         self.frame_counter = 0
 
@@ -112,15 +112,18 @@ class MyGLArea(Gtk.GLArea):
         # End Pyassimp functions
         """
 
-    def _tick(self, wi, clock):
-        ti = clock.get_frame_time()
-        if ti - self.last_frame_time > 1000000:
+    def tick(self, widget, frame_clock):
+        # A frame clock is compatible with OpenGL. It automatically stops painting when it knows frames will not be visible.
+        # A tick is issued every time GTK draws a new frame.
+        # Gets a timestamp in microseconds
+        current_frame_time = frame_clock.get_frame_time() # https://developer.gnome.org/gdk3/stable/GdkFrameClock.html#gdk-frame-clock-get-frame-time
+        if current_frame_time - self.last_frame_time > 1000000:
             self.counter += 1
             print(str(self.frame_counter) + "/s")
             self.frame_counter = 0
-            self.last_frame_time = ti
+            self.last_frame_time = current_frame_time
             #self.queue_draw()
-        return True
+        return True #Return true to indicate that tick callback should contine to be called https://developer.gnome.org/gtk3/unstable/GtkWidget.html#GtkTickCallback
 
     def on_realize(self, area):
         # OpenGL Context Successfully Initalized
