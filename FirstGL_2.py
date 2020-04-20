@@ -25,6 +25,8 @@ void main(){
 	outColor = texture(samplerTexture, v_texCoords);
 }'''
 
+# The layout qualifier is used to set the location of the vertex attribute
+# The layout value (location = #) is passed as the index value (1st parameter) to glVertexAttrib*() p.69 OGLSB
 VERTEX_SOURCE = '''
 #version 330
 layout(location = 0) in vec3 in_positions;
