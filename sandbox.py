@@ -13,13 +13,13 @@ class TransparentWindow(Gtk.Window):
         # create gtk-window for drawing
         self.window = Gtk.Window(Gtk.WindowType.TOPLEVEL)
         self.window.set_app_paintable(True)
-        self.window.set_decorated(False)
+        # self.window.set_decorated(False)
         self.window.set_title("cairo-countdown")
-        self.window.set_keep_above(True)
-        self.window.set_focus_on_map(False)
-        self.window.set_accept_focus(False)
-        self.window.set_skip_pager_hint(True)
-        self.window.set_skip_taskbar_hint(True)
+        # self.window.set_keep_above(True)
+        # self.window.set_focus_on_map(False)
+        # self.window.set_accept_focus(False)
+        # self.window.set_skip_pager_hint(True)
+        # self.window.set_skip_taskbar_hint(True)
 
         self.window.connect('destroy', Gtk.main_quit)
         self.window.connect('draw', self.draw)
@@ -34,19 +34,19 @@ class TransparentWindow(Gtk.Window):
             self.window.set_visual(visual)
 
 
-        # make window click-through, this needs pycairo 1.10.0 for python3
-        # to work
-        rect = cairo.RectangleInt(0, 0, 1, 1)
-        region = cairo.Region(rect)
-        if (not region.is_empty()):
-            self.window.input_shape_combine_region(None)
-            self.window.input_shape_combine_region(region)
+        # # make window click-through, this needs pycairo 1.10.0 for python3
+        # # to work
+        # rect = cairo.RectangleInt(0, 0, 1, 1)
+        # region = cairo.Region(rect)
+        # if (not region.is_empty()):
+        #     self.window.input_shape_combine_region(None)
+        #     self.window.input_shape_combine_region(region)
 
 
         self.window.show_all()
 
     def draw(self, widget, context):
-        context.set_source_rgba(1, 1, 1, 0)
+        context.set_source_rgba(1, 1, 1, 1)
         context.set_operator(cairo.OPERATOR_SOURCE)
 
         # Draw some shapes into the context here
@@ -82,9 +82,9 @@ class TransparentWindow(Gtk.Window):
         #context.paint()
 
         # custom window shape
-        #sface = context.get_group_target()
-        #mregion = Gdk.cario_region_from_surface(sface)
-        #self.get_window().imput_shape_combine_region(mregion, 0, 0)
+        # sface = context.get_group_target()
+        # mregion = Gdk.cairo_region_create_from_surface(sface)
+        # self.get_window().imput_shape_combine_region(mregion, 0, 0)
 
         context.paint()
         context.set_operator(cairo.OPERATOR_OVER)

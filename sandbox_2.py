@@ -1,3 +1,7 @@
+import gi
+gi.require_version('Gdk', '3.0')
+gi.require_version('Gtk', '3.0')
+
 from gi.repository import Gtk
 from gi.repository import cairo
 import sys
@@ -17,7 +21,7 @@ class MyWindow(Gtk.ApplicationWindow):
         grid = Gtk.Grid()
 
         # a spinbutton that takes the value of an angle
-        ad = Gtk.Adjustment(360, 0, 360, 1, 0, 0)
+        ad = Gtk.Adjustment(value=360, lower=0, upper=360, step_increment=1, page_increment=0, page_size=0)
         self.spin = Gtk.SpinButton(adjustment=ad, climb_rate=1, digits=0)
         self.spin.connect("value-changed", self.get_angle)
 

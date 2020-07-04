@@ -35,7 +35,7 @@ def transparent_expose(widget, event):
     cr.set_operator(cairo.OPERATOR_CLEAR)
 
     # Ugly but we don't have event.region
-    region = Gtk.gdk.region_rectangle(event.area)
+    region = Gdk.region_rectangle(event.area)
 
     cr.region(region)
     cr.fill()
@@ -71,8 +71,8 @@ def window_expose_event(widget, event):
                           child.allocation.y)
 
     #draw no more than our expose event intersects our child
-    region = Gtk.gdk.region_rectangle(child.allocation)
-    r = Gtk.gdk.region_rectangle(event.area)
+    region = Gdk.region_rectangle(child.allocation)
+    r = Gdk.region_rectangle(event.area)
     region.intersect(r)
     cr.region (region)
     cr.clip()
@@ -89,7 +89,7 @@ b = Gtk.Button("A Button")
 e = Gtk.EventBox()
 
 # Put a red background on the window
-red = Gtk.gdk.color_parse("red")
+red = Gdk.color_parse("red")
 w.modify_bg(Gtk.STATE_NORMAL, red)
 
 # Set the colourmap for the event box.

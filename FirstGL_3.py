@@ -46,11 +46,6 @@ WINDOW_WIDTH = 800
 WINDOW_HEIGHT = 500
 
 
-def recur_node(node, level=0):
-    print("  " + "\t" * level + "- " + str(node))
-    for child in node.children:
-        recur_node(child, level + 1)
-
 
 class MyGLArea(Gtk.GLArea):
     def __init__(self):
@@ -64,9 +59,6 @@ class MyGLArea(Gtk.GLArea):
         self.add_tick_callback(self.tick)
         self.counter = 0
         self.frame_counter = 0
-
-
-
 
     def tick(self, widget, frame_clock):
         # A frame clock is compatible with OpenGL. It automatically stops painting when it knows frames will not be visible.
@@ -87,12 +79,8 @@ class MyGLArea(Gtk.GLArea):
         # Print information about our OpenGL Context
         ctx = self.get_context()
         ctx.make_current()
-        print('Using legacy context: %s' % Gdk.GLContext.is_legacy(ctx))
         major, minor = ctx.get_required_version()
         print("Using OpenGL Version " + str(major) + "." + str(minor))
-        print('glGenVertexArrays Available %s' % bool(glGenVertexArrays))
-        print('Alpha Available %s' % bool(area.get_has_alpha()))
-        print('Depth buffer Available %s' % bool(area.get_has_depth_buffer()))
 
         # Get information about current GTK GLArea canvas
         window = area.get_allocation()
